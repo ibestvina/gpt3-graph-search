@@ -1,4 +1,5 @@
 import random
+import time
 
 from gpt3_api import execute
 from random import shuffle, choice
@@ -6,6 +7,7 @@ from collections import deque
 import re
 import json
 import uuid
+import openai
 
 
 def format_node_name(node):
@@ -13,7 +15,7 @@ def format_node_name(node):
 
 
 def format_solution(solution):
-    if not solution or solution == no_path_reason:
+    if not solution or solution.lower().startswith(no_path_reason):
         return no_path_reason
     return ','.join(str(n) for n in solution)
 
@@ -25,7 +27,7 @@ def other(edge, fr):
         return edge[0]
 
 
-no_path_reason = 'There is no path.'
+no_path_reason = 'there is no path'
 
 
 class RandomGraph:
@@ -60,13 +62,23 @@ class RandomGraph:
 
     def extract_gpt_answer(self, answer):
         stripped = answer.strip()
-        if stripped == no_path_reason:
+        if stripped.lower().startswith(no_path_reason):
             return None
-        numbers = [int(s) for s in re.findall(r'(\d+)', answer)]
-        return numbers
+        nodes = [int(s[2:]) for s in re.findall(r'-[ ]\d+', answer)]
+        last_node = int(re.findall(r'\d+', stripped)[-1])
+        nodes.append(last_node)
+        return nodes
 
     def gpt_solve(self):
-        return execute(self.prompt(), max_tokens=2048, temperature=0)
+        return execute(
+            self.prompt(), 
+            temperature=0,
+            max_tokens=1256,
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0,
+            stop=["```"]
+        )
 
     def solve(self):
         q = deque([(self.from_location, [])])
@@ -145,23 +157,67 @@ class RandomGraph:
 
     def prompt(self):
         newline = '\n'
+        problem = newline.join(f'{format_node_name(edge[0])} is connected to {format_node_name(edge[1])}' for edge in self.edges)
         return f'''
-You are solving a graph problem where you need to find a path in the graph.
-The graph has {len(self.nodes)} nodes, numbered from 1 to {len(self.nodes)}.
-        
-The graph has {len(self.edges)} bidirectional edges. Here they are:
-{newline.join(f'An edge from node {format_node_name(edge[0])} to {format_node_name(edge[1])}' for edge in self.edges)}
-        
-You are currently on node {format_node_name(self.from_location)}. 
-You would like to find the optimal path to node {format_node_name(self.to_location)}.
-        
-Output the list of nodes you visit on this path in order, separated by commas. If there is no path, instead print "{no_path_reason}" 
+Problem:
+```
+1 is connected to 2.
+1 is connected to 4.
+```
+Question: 
+```
+What is the shortest path from 4 to 1?
+```
+Answer:
+```
+- 4 to 1
+```
 
-Your solution should start with node {format_node_name(self.from_location)} and end with node {format_node_name(self.to_location)}. 
 
-Do not include any extra text.
-            
-            '''
+Problem:
+```
+3 is connected to 2.
+4 is connected to 3.
+```
+Question:
+```
+What is the shortest path from 2 to 4?
+```
+Answer:
+```
+- 2 to 3
+- 3 to 4
+```
+
+ 
+Problem:
+```
+3 is connected to 2.
+4 is connected to 3.
+5 is connected to 6.
+```
+Question:
+```
+What is the shortest path from 2 to 6?
+```
+Answer:
+```
+There is no path from 2 to 6
+```
+
+ 
+ 
+Problem:
+```
+{problem}
+```
+Question: 
+```
+What is the shortest path from {format_node_name(self.from_location)} to {format_node_name(self.to_location)}?
+```
+Answer:
+```
+'''
 
     def as_record(self):
         return {
@@ -185,8 +241,13 @@ def generate_many_graphs():
         node_count = random.randint(3, 14) if not force_path_len else force_path_len * 2
         edge_count = min(25, random.randint(1, int(node_count * (node_count - 1) / 2) - 1))
 
-        graph = RandomGraph(node_count, edge_count, force_solution, force_path_len)
-        grade = graph.grade_gpt_answer()
+        try:
+            graph = RandomGraph(node_count, edge_count, force_solution, force_path_len)
+            grade = graph.grade_gpt_answer()
+        except openai.error.RateLimitError:
+            print('sleeping...')
+            time.sleep(10)
+            continue
         if grade[0]:
             print("YES", node_count, edge_count, len(graph.solution) if graph.solution else 0, graph.solution,
                   graph.gpt3_solution, grade[1], graph.guid, force_path_len)
@@ -198,6 +259,8 @@ def generate_many_graphs():
         # Save the result incrementally in case of crashes
         with open(file_name, 'w') as handle:
             json.dump(data, handle)
+        
+        time.sleep(5)
     print("Data is in " + file_name)
 
 

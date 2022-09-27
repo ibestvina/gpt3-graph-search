@@ -6,7 +6,7 @@ import openai
 
 def execute(prompt, **kwargs):
     response = openai.Completion.create(
-        model="text-davinci-002",
+        model="code-davinci-002",
         prompt=prompt,
         **kwargs
     )
