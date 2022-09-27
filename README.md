@@ -22,3 +22,19 @@ python3 src/main.py
 ### Prompt example
 
 https://pastebin.com/D7Hn95VC
+
+
+### Results
+
+```
+   - Found the optimal path 504
+   - Found a (non-optimal) path 293
+   - Correctly reported no path exists 131
+   - Found a solution when none existed 19
+   - Ended on wrong node 0
+   - Used edges that don't exist 53
+   - Started with the wrong node 0
+   - Incorrectly reported no path exists 0
+   
+   - Total:  1000
+```
