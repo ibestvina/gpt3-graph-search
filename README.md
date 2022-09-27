@@ -17,3 +17,8 @@ python3 src/main.py
 2. Instead of using an explanation of how tasks work, 3 examples are given (few-shot prompting): two with paths, and one to show what to output when there is no path present
 3. Changed the output so that it has to specify edges, instead of nodes, it is traversing. This helps GPT to avoid using nonexistent edges.
 4. Added pauses in the main loop to avoid raising `openai.RateLimitError`
+
+
+### Prompt example
+
+https://pastebin.com/D7Hn95VC
